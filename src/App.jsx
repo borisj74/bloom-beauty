@@ -674,7 +674,11 @@ export default function BeautyApp() {
                   {cart.map((item, index) => (
                     <div key={item.id} style={{...styles.cartItem, animationDelay: `${index * 0.1}s`}}>
                       <div style={styles.cartItemImage}>
-                        <span style={styles.cartItemEmoji}>{item.image}</span>
+                        {item.image && item.image.startsWith('data:') ? (
+                          <img src={item.image} alt={item.name} style={styles.productImageReal} />
+                        ) : (
+                          <span style={styles.cartItemEmoji}>{item.image}</span>
+                        )}
                       </div>
                       <div style={styles.cartItemDetails}>
                         <span style={styles.cartItemBrand}>{item.brand}</span>
@@ -780,7 +784,11 @@ export default function BeautyApp() {
                   <div style={styles.paymentItems}>
                     {cart.map(item => (
                       <div key={item.id} style={styles.paymentItem}>
-                        <span style={styles.paymentItemEmoji}>{item.image}</span>
+                        {item.image && item.image.startsWith('data:') ? (
+                          <img src={item.image} alt={item.name} style={{...styles.paymentItemEmoji, objectFit: 'cover', borderRadius: '8px'}} />
+                        ) : (
+                          <span style={styles.paymentItemEmoji}>{item.image}</span>
+                        )}
                         <div style={styles.paymentItemInfo}>
                           <span style={styles.paymentItemName}>{item.name}</span>
                           <span style={styles.paymentItemQty}>Qty: {item.quantity}</span>
@@ -1007,7 +1015,11 @@ export default function BeautyApp() {
                   <h4 style={styles.confirmationItemsTitle}>Items Ordered</h4>
                   {cart.map(item => (
                     <div key={item.id} style={styles.confirmationItem}>
-                      <span style={styles.confirmationItemEmoji}>{item.image}</span>
+                      {item.image && item.image.startsWith('data:') ? (
+                        <img src={item.image} alt={item.name} style={{width: '20px', height: '20px', objectFit: 'cover', borderRadius: '4px'}} />
+                      ) : (
+                        <span style={styles.confirmationItemEmoji}>{item.image}</span>
+                      )}
                       <span style={styles.confirmationItemName}>{item.name} × {item.quantity}</span>
                     </div>
                   ))}
@@ -1038,7 +1050,11 @@ export default function BeautyApp() {
             </button>
             <div style={styles.panelContent}>
               <div style={styles.panelProductImage}>
-                <span style={styles.panelEmoji}>{selectedProduct.image}</span>
+                {selectedProduct.image && selectedProduct.image.startsWith('data:') ? (
+                  <img src={selectedProduct.image} alt={selectedProduct.name} style={styles.panelImageReal} />
+                ) : (
+                  <span style={styles.panelEmoji}>{selectedProduct.image}</span>
+                )}
               </div>
               <div style={styles.panelProductHeader}>
                 <span style={styles.panelBrand}>{selectedProduct.brand}</span>
@@ -2364,6 +2380,13 @@ const styles = {
   },
   panelEmoji: {
     fontSize: '64px',
+  },
+  panelImageReal: {
+    width: '100%',
+    height: '100%',
+    maxHeight: '200px',
+    objectFit: 'cover',
+    borderRadius: '16px',
   },
   panelProductHeader: {
     textAlign: 'center',
