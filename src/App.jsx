@@ -1369,7 +1369,7 @@ export default function BeautyApp() {
             <div style={styles.formGroup}>
               <label style={styles.formLabel}>Product Image *</label>
               <div style={styles.imageUploadContainer}>
-                {newProduct.imagePreview ? (
+                {newProduct.imagePreview && newProduct.imagePreview.startsWith('data:') ? (
                   <div style={styles.imagePreviewContainer}>
                     <img src={newProduct.imagePreview} alt="Preview" style={styles.imagePreview} />
                     <button style={styles.removeImageButton} onClick={() => setNewProduct({...newProduct, image: null, imagePreview: null})}>
@@ -1377,6 +1377,21 @@ export default function BeautyApp() {
                         <path d="M18 6L6 18M6 6l12 12"/>
                       </svg>
                     </button>
+                  </div>
+                ) : newProduct.imagePreview ? (
+                  <div style={styles.emojiPreviewContainer}>
+                    <div style={styles.emojiPreview}>
+                      <span style={styles.emojiPreviewText}>{newProduct.imagePreview}</span>
+                      <p style={styles.emojiPreviewLabel}>Current Image (Emoji)</p>
+                    </div>
+                    <label style={styles.changeImageButton} htmlFor="imageUpload">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <polyline points="21 15 16 10 5 21"/>
+                      </svg>
+                      <span>Upload New Image</span>
+                    </label>
                   </div>
                 ) : (
                   <label style={styles.imageUploadLabel} htmlFor="imageUpload">
@@ -3339,6 +3354,47 @@ const styles = {
     cursor: 'pointer',
     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
     color: '#1a3d24',
+  },
+  emojiPreviewContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+    width: '100%',
+  },
+  emojiPreview: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '30px',
+    background: 'linear-gradient(135deg, #f5f9f0 0%, #e8f5e0 100%)',
+    borderRadius: '16px',
+    border: '1px solid rgba(144, 198, 124, 0.2)',
+  },
+  emojiPreviewText: {
+    fontSize: '64px',
+    marginBottom: '8px',
+  },
+  emojiPreviewLabel: {
+    fontSize: '12px',
+    color: '#6b7c6e',
+    fontWeight: '500',
+    margin: 0,
+  },
+  changeImageButton: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '10px',
+    padding: '14px',
+    border: '2px dashed rgba(144, 198, 124, 0.4)',
+    borderRadius: '12px',
+    background: 'rgba(248, 250, 245, 0.5)',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    color: '#2d5a3d',
+    fontSize: '14px',
+    fontWeight: '500',
   },
   checkboxGroup: {
     display: 'flex',
