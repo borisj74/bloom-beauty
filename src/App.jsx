@@ -94,6 +94,11 @@ export default function BeautyApp() {
   const [orderComplete, setOrderComplete] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [adminPanelOpen, setAdminPanelOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(() => {
+    return localStorage.getItem('isAdmin') === 'true';
+  });
+  const [adminLoginOpen, setAdminLoginOpen] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
   const [customProducts, setCustomProducts] = useState(() => {
     const saved = localStorage.getItem('customProducts');
     return saved ? JSON.parse(saved) : { skincare: [], haircare: [] };
@@ -119,6 +124,28 @@ export default function BeautyApp() {
   const showToast = (message) => {
     setToast({ show: true, message });
     setTimeout(() => setToast({ show: false, message: '' }), 2500);
+  };
+
+  const handleAdminLogin = () => {
+    // Admin password - change this to your desired password
+    const ADMIN_PASSWORD = 'admin123';
+
+    if (adminPassword === ADMIN_PASSWORD) {
+      setIsAdmin(true);
+      localStorage.setItem('isAdmin', 'true');
+      setAdminLoginOpen(false);
+      setAdminPassword('');
+      showToast('Admin access granted!');
+    } else {
+      showToast('Incorrect password');
+      setAdminPassword('');
+    }
+  };
+
+  const handleAdminLogout = () => {
+    setIsAdmin(false);
+    localStorage.removeItem('isAdmin');
+    showToast('Logged out of admin mode');
   };
 
   const startQuiz = (type) => {
@@ -412,13 +439,31 @@ export default function BeautyApp() {
             <span style={styles.logoIcon}>🌿</span>
             <h1 style={styles.logo}>Bloom</h1>
           </div>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button style={styles.adminButton} onClick={() => setAdminPanelOpen(true)} title="Add Product">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="12" y1="5" x2="12" y2="19"/>
-                <line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-            </button>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            {isAdmin ? (
+              <>
+                <button style={styles.adminButton} onClick={() => setAdminPanelOpen(true)} title="Add Product">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                </button>
+                <button style={styles.adminLogoutButton} onClick={handleAdminLogout} title="Logout Admin">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                  </svg>
+                </button>
+              </>
+            ) : (
+              <button style={styles.adminLoginButton} onClick={() => setAdminLoginOpen(true)} title="Admin Login">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+              </button>
+            )}
             <button style={styles.cartButton} onClick={() => setCurrentView('checkout')}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
@@ -1140,6 +1185,47 @@ export default function BeautyApp() {
         </div>
       </div>
 
+      {/* Admin Login Panel */}
+      <div style={{...styles.panelOverlay, opacity: adminLoginOpen ? 1 : 0, pointerEvents: adminLoginOpen ? 'auto' : 'none'}} onClick={() => setAdminLoginOpen(false)}></div>
+      <div style={{...styles.adminLoginPanel, transform: adminLoginOpen ? 'translateY(0)' : 'translateY(100%)'}} onClick={(e) => e.stopPropagation()}>
+        <div style={styles.panelHandle}></div>
+        <button style={styles.panelClose} onClick={() => setAdminLoginOpen(false)}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+        <div style={styles.adminPanelContent}>
+          <h3 style={styles.addProductTitle}>Admin Login</h3>
+          <p style={styles.addProductSubtitle}>Enter admin password to manage products</p>
+
+          <div style={styles.adminForm}>
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>Password</label>
+              <input
+                type="password"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleAdminLogin()}
+                placeholder="Enter admin password"
+                style={styles.formInput}
+                autoFocus
+              />
+            </div>
+
+            <button
+              onClick={handleAdminLogin}
+              style={styles.adminSubmitButton}
+            >
+              Login
+            </button>
+
+            <p style={{fontSize: '12px', color: '#6b7c6e', marginTop: '12px', textAlign: 'center'}}>
+              Default password: <strong>admin123</strong>
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Admin Panel */}
       <div style={{...styles.panelOverlay, opacity: adminPanelOpen ? 1 : 0, pointerEvents: adminPanelOpen ? 'auto' : 'none'}} onClick={() => setAdminPanelOpen(false)}></div>
       <div style={{...styles.adminPanel, transform: adminPanelOpen ? 'translateY(0)' : 'translateY(100%)'}} onClick={(e) => e.stopPropagation()}>
@@ -1547,6 +1633,51 @@ const styles = {
     color: '#fff',
     boxShadow: '0 2px 12px rgba(45, 90, 61, 0.25)',
     transition: 'all 0.3s ease',
+  },
+  adminLoginButton: {
+    position: 'relative',
+    width: '36px',
+    height: '36px',
+    borderRadius: '50%',
+    border: '1px solid rgba(45, 90, 61, 0.2)',
+    background: 'rgba(255,255,255,0.9)',
+    backdropFilter: 'blur(10px)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    color: '#2d5a3d',
+    boxShadow: '0 2px 8px rgba(45, 90, 61, 0.1)',
+    transition: 'all 0.3s ease',
+  },
+  adminLogoutButton: {
+    position: 'relative',
+    width: '36px',
+    height: '36px',
+    borderRadius: '50%',
+    border: 'none',
+    background: 'rgba(255,255,255,0.9)',
+    backdropFilter: 'blur(10px)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    color: '#d4a853',
+    boxShadow: '0 2px 8px rgba(45, 90, 61, 0.1)',
+    transition: 'all 0.3s ease',
+  },
+  adminLoginPanel: {
+    position: 'fixed',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    background: '#fff',
+    borderRadius: '24px 24px 0 0',
+    maxHeight: '50vh',
+    overflow: 'auto',
+    zIndex: 101,
+    transition: 'transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)',
+    boxShadow: '0 -8px 40px rgba(45, 90, 61, 0.15)',
   },
   cartBadge: {
     position: 'absolute',
