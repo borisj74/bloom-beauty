@@ -104,6 +104,14 @@ export default function BeautyApp() {
     const saved = localStorage.getItem('customProducts');
     return saved ? JSON.parse(saved) : { skincare: [], haircare: [] };
   });
+  const [modifiedProducts, setModifiedProducts] = useState(() => {
+    const saved = localStorage.getItem('modifiedProducts');
+    return saved ? JSON.parse(saved) : {};
+  });
+  const [deletedProducts, setDeletedProducts] = useState(() => {
+    const saved = localStorage.getItem('deletedProducts');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [newProduct, setNewProduct] = useState({
     name: '',
     brand: '',
@@ -358,18 +366,26 @@ export default function BeautyApp() {
     setAdminPanelOpen(true);
   };
 
-  const deleteProduct = (productId, category) => {
+  const deleteProduct = (productId, category, isBuiltIn) => {
     if (!confirm('Are you sure you want to delete this product?')) {
       return;
     }
 
-    const updated = {
-      ...customProducts,
-      [category]: customProducts[category].filter(p => p.id !== productId)
-    };
+    if (isBuiltIn) {
+      // Mark built-in product as deleted
+      const updatedDeleted = [...deletedProducts, productId];
+      setDeletedProducts(updatedDeleted);
+      localStorage.setItem('deletedProducts', JSON.stringify(updatedDeleted));
+    } else {
+      // Remove custom product
+      const updated = {
+        ...customProducts,
+        [category]: customProducts[category].filter(p => p.id !== productId)
+      };
+      setCustomProducts(updated);
+      localStorage.setItem('customProducts', JSON.stringify(updated));
+    }
 
-    setCustomProducts(updated);
-    localStorage.setItem('customProducts', JSON.stringify(updated));
     showToast('Product deleted successfully!');
   };
 
@@ -394,25 +410,39 @@ export default function BeautyApp() {
       rating: 5.0
     };
 
-    let updated;
     if (editingProductId) {
-      // Update existing product
-      updated = {
-        ...customProducts,
-        [newProduct.category]: customProducts[newProduct.category].map(p =>
-          p.id === editingProductId ? product : p
-        )
-      };
+      // Check if editing a built-in product
+      const allBuiltIn = [...beautyProducts.skincare, ...beautyProducts.haircare];
+      const isBuiltIn = allBuiltIn.some(p => p.id === editingProductId);
+
+      if (isBuiltIn) {
+        // Save as modified built-in product
+        const updatedModified = {
+          ...modifiedProducts,
+          [editingProductId]: product
+        };
+        setModifiedProducts(updatedModified);
+        localStorage.setItem('modifiedProducts', JSON.stringify(updatedModified));
+      } else {
+        // Update custom product
+        const updated = {
+          ...customProducts,
+          [newProduct.category]: customProducts[newProduct.category].map(p =>
+            p.id === editingProductId ? product : p
+          )
+        };
+        setCustomProducts(updated);
+        localStorage.setItem('customProducts', JSON.stringify(updated));
+      }
     } else {
-      // Add new product
-      updated = {
+      // Add new custom product
+      const updated = {
         ...customProducts,
         [newProduct.category]: [...customProducts[newProduct.category], product]
       };
+      setCustomProducts(updated);
+      localStorage.setItem('customProducts', JSON.stringify(updated));
     }
-
-    setCustomProducts(updated);
-    localStorage.setItem('customProducts', JSON.stringify(updated));
 
     setNewProduct({
       name: '',
@@ -433,15 +463,26 @@ export default function BeautyApp() {
     setAdminPanelOpen(false);
   };
 
+  // Merge built-in products with modifications and filter out deleted ones
+  const getProcessedProducts = (productList) => {
+    return productList
+      .filter(p => !deletedProducts.includes(p.id))
+      .map(p => modifiedProducts[p.id] || p);
+  };
+
   const allProducts = [
-    ...beautyProducts.skincare,
-    ...beautyProducts.haircare,
+    ...getProcessedProducts(beautyProducts.skincare),
+    ...getProcessedProducts(beautyProducts.haircare),
     ...customProducts.skincare,
     ...customProducts.haircare
   ];
+
   const filteredProducts = activeFilter === 'all'
     ? allProducts
-    : [...(beautyProducts[activeFilter] || []), ...(customProducts[activeFilter] || [])];
+    : [
+        ...getProcessedProducts(beautyProducts[activeFilter] || []),
+        ...(customProducts[activeFilter] || [])
+      ];
 
   const availableProductsToAdd = allProducts.filter(
     product => !cart.some(item => item.id === product.id)
@@ -616,6 +657,8 @@ export default function BeautyApp() {
               </div>
               <div style={styles.productGrid}>
                 {filteredProducts.map((product, index) => {
+                  const allBuiltIn = [...beautyProducts.skincare, ...beautyProducts.haircare];
+                  const isBuiltIn = allBuiltIn.some(p => p.id === product.id);
                   const isCustomProduct = [...customProducts.skincare, ...customProducts.haircare].some(p => p.id === product.id);
                   const productCategory = product.skinTypes ? 'skincare' : 'haircare';
 
@@ -625,7 +668,7 @@ export default function BeautyApp() {
                       style={{...styles.productCard, animationDelay: `${index * 0.1}s`}}
                       onClick={() => openProductPanel(product)}
                     >
-                      {isAdmin && isCustomProduct && (
+                      {isAdmin && (
                         <div style={styles.productActions}>
                           <button
                             style={styles.editButton}
@@ -644,7 +687,7 @@ export default function BeautyApp() {
                             style={styles.deleteButton}
                             onClick={(e) => {
                               e.stopPropagation();
-                              deleteProduct(product.id, productCategory);
+                              deleteProduct(product.id, productCategory, isBuiltIn);
                             }}
                             title="Delete Product"
                           >
