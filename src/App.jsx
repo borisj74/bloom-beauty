@@ -99,6 +99,7 @@ export default function BeautyApp() {
   });
   const [adminLoginOpen, setAdminLoginOpen] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
+  const [editingProductId, setEditingProductId] = useState(null);
   const [customProducts, setCustomProducts] = useState(() => {
     const saved = localStorage.getItem('customProducts');
     return saved ? JSON.parse(saved) : { skincare: [], haircare: [] };
@@ -339,6 +340,39 @@ export default function BeautyApp() {
     );
   };
 
+  const startEditProduct = (product) => {
+    setEditingProductId(product.id);
+    setNewProduct({
+      name: product.name,
+      brand: product.brand,
+      price: product.price.toString(),
+      category: product.skinTypes ? 'skincare' : 'haircare',
+      description: product.description,
+      ingredients: product.ingredients || '',
+      image: product.image,
+      imagePreview: product.image,
+      concerns: product.concerns,
+      skinTypes: product.skinTypes || [],
+      hairTypes: product.hairTypes || []
+    });
+    setAdminPanelOpen(true);
+  };
+
+  const deleteProduct = (productId, category) => {
+    if (!confirm('Are you sure you want to delete this product?')) {
+      return;
+    }
+
+    const updated = {
+      ...customProducts,
+      [category]: customProducts[category].filter(p => p.id !== productId)
+    };
+
+    setCustomProducts(updated);
+    localStorage.setItem('customProducts', JSON.stringify(updated));
+    showToast('Product deleted successfully!');
+  };
+
   const saveProduct = () => {
     if (!isProductValid()) {
       showToast('Please fill in all required fields');
@@ -346,7 +380,7 @@ export default function BeautyApp() {
     }
 
     const product = {
-      id: Date.now(),
+      id: editingProductId || Date.now(),
       name: newProduct.name,
       brand: newProduct.brand,
       price: parseFloat(newProduct.price),
@@ -360,10 +394,22 @@ export default function BeautyApp() {
       rating: 5.0
     };
 
-    const updated = {
-      ...customProducts,
-      [newProduct.category]: [...customProducts[newProduct.category], product]
-    };
+    let updated;
+    if (editingProductId) {
+      // Update existing product
+      updated = {
+        ...customProducts,
+        [newProduct.category]: customProducts[newProduct.category].map(p =>
+          p.id === editingProductId ? product : p
+        )
+      };
+    } else {
+      // Add new product
+      updated = {
+        ...customProducts,
+        [newProduct.category]: [...customProducts[newProduct.category], product]
+      };
+    }
 
     setCustomProducts(updated);
     localStorage.setItem('customProducts', JSON.stringify(updated));
@@ -382,7 +428,8 @@ export default function BeautyApp() {
       hairTypes: []
     });
 
-    showToast('Product added successfully!');
+    setEditingProductId(null);
+    showToast(editingProductId ? 'Product updated successfully!' : 'Product added successfully!');
     setAdminPanelOpen(false);
   };
 
@@ -568,29 +615,64 @@ export default function BeautyApp() {
                 </div>
               </div>
               <div style={styles.productGrid}>
-                {filteredProducts.map((product, index) => (
-                  <div 
-                    key={product.id} 
-                    style={{...styles.productCard, animationDelay: `${index * 0.1}s`}}
-                    onClick={() => openProductPanel(product)}
-                  >
-                    <div style={styles.productImageContainer}>
-                      {product.image && product.image.startsWith('data:') ? (
-                        <img src={product.image} alt={product.name} style={styles.productImageReal} />
-                      ) : (
-                        <span style={styles.productEmoji}>{product.image}</span>
+                {filteredProducts.map((product, index) => {
+                  const isCustomProduct = [...customProducts.skincare, ...customProducts.haircare].some(p => p.id === product.id);
+                  const productCategory = product.skinTypes ? 'skincare' : 'haircare';
+
+                  return (
+                    <div
+                      key={product.id}
+                      style={{...styles.productCard, animationDelay: `${index * 0.1}s`}}
+                      onClick={() => openProductPanel(product)}
+                    >
+                      {isAdmin && isCustomProduct && (
+                        <div style={styles.productActions}>
+                          <button
+                            style={styles.editButton}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startEditProduct(product);
+                            }}
+                            title="Edit Product"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            </svg>
+                          </button>
+                          <button
+                            style={styles.deleteButton}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteProduct(product.id, productCategory);
+                            }}
+                            title="Delete Product"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="3 6 5 6 21 6"/>
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                            </svg>
+                          </button>
+                        </div>
                       )}
-                    </div>
-                    <div style={styles.productInfo}>
-                      <span style={styles.productBrand}>{product.brand}</span>
-                      <h4 style={styles.productName}>{product.name}</h4>
-                      <div style={styles.productMeta}>
-                        <span style={styles.productPrice}>${product.price}</span>
-                        <span style={styles.productRating}>★ {product.rating}</span>
+                      <div style={styles.productImageContainer}>
+                        {product.image && product.image.startsWith('data:') ? (
+                          <img src={product.image} alt={product.name} style={styles.productImageReal} />
+                        ) : (
+                          <span style={styles.productEmoji}>{product.image}</span>
+                        )}
+                      </div>
+                      <div style={styles.productInfo}>
+                        <span style={styles.productBrand}>{product.brand}</span>
+                        <h4 style={styles.productName}>{product.name}</h4>
+                        <div style={styles.productMeta}>
+                          <span style={styles.productPrice}>${product.price}</span>
+                          <span style={styles.productRating}>★ {product.rating}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -1236,8 +1318,8 @@ export default function BeautyApp() {
           </svg>
         </button>
         <div style={styles.adminPanelContent}>
-          <h3 style={styles.addProductTitle}>Create New Product</h3>
-          <p style={styles.addProductSubtitle}>Upload product image and fill in details</p>
+          <h3 style={styles.addProductTitle}>{editingProductId ? 'Edit Product' : 'Create New Product'}</h3>
+          <p style={styles.addProductSubtitle}>{editingProductId ? 'Update product details' : 'Upload product image and fill in details'}</p>
 
           <div style={styles.adminForm}>
             {/* Image Upload */}
@@ -1431,7 +1513,7 @@ export default function BeautyApp() {
                 cursor: isProductValid() ? 'pointer' : 'not-allowed'
               }}
             >
-              Save Product
+              {editingProductId ? 'Update Product' : 'Save Product'}
             </button>
           </div>
         </div>
@@ -1892,6 +1974,43 @@ const styles = {
     boxShadow: '0 2px 12px rgba(45, 90, 61, 0.06)',
     border: '1px solid rgba(144, 198, 124, 0.15)',
     animation: 'fadeInUp 0.5s ease forwards',
+    position: 'relative',
+  },
+  productActions: {
+    position: 'absolute',
+    top: '8px',
+    right: '8px',
+    display: 'flex',
+    gap: '6px',
+    zIndex: 10,
+  },
+  editButton: {
+    width: '28px',
+    height: '28px',
+    borderRadius: '8px',
+    border: 'none',
+    background: 'rgba(255, 255, 255, 0.95)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    color: '#2d5a3d',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+    transition: 'all 0.2s ease',
+  },
+  deleteButton: {
+    width: '28px',
+    height: '28px',
+    borderRadius: '8px',
+    border: 'none',
+    background: 'rgba(255, 255, 255, 0.95)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    color: '#d4534f',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+    transition: 'all 0.2s ease',
   },
   productImageContainer: {
     height: '120px',
