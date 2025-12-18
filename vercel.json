@@ -1,0 +1,7 @@
+{
+  "git": {
+    "deploymentEnabled": {
+      "claude/add-product-upload-F28AZ": true
+    }
+  }
+}
