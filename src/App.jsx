@@ -93,6 +93,24 @@ export default function BeautyApp() {
   });
   const [orderComplete, setOrderComplete] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [adminPanelOpen, setAdminPanelOpen] = useState(false);
+  const [customProducts, setCustomProducts] = useState(() => {
+    const saved = localStorage.getItem('customProducts');
+    return saved ? JSON.parse(saved) : { skincare: [], haircare: [] };
+  });
+  const [newProduct, setNewProduct] = useState({
+    name: '',
+    brand: '',
+    price: '',
+    category: 'skincare',
+    description: '',
+    ingredients: '',
+    image: null,
+    imagePreview: null,
+    concerns: [],
+    skinTypes: [],
+    hairTypes: []
+  });
 
   useEffect(() => {
     setAnimateIn(true);
@@ -254,10 +272,102 @@ export default function BeautyApp() {
     setCurrentView('home');
   };
 
-  const allProducts = [...beautyProducts.skincare, ...beautyProducts.haircare];
-  const filteredProducts = activeFilter === 'all' 
-    ? allProducts 
-    : beautyProducts[activeFilter] || [];
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setNewProduct({
+          ...newProduct,
+          image: reader.result,
+          imagePreview: reader.result
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleProductInput = (field, value) => {
+    setNewProduct({ ...newProduct, [field]: value });
+  };
+
+  const toggleArrayField = (field, value) => {
+    const current = newProduct[field];
+    if (current.includes(value)) {
+      setNewProduct({ ...newProduct, [field]: current.filter(v => v !== value) });
+    } else {
+      setNewProduct({ ...newProduct, [field]: [...current, value] });
+    }
+  };
+
+  const isProductValid = () => {
+    return (
+      newProduct.name.length > 0 &&
+      newProduct.brand.length > 0 &&
+      newProduct.price > 0 &&
+      newProduct.description.length > 0 &&
+      newProduct.image !== null &&
+      (newProduct.category === 'skincare' ? newProduct.skinTypes.length > 0 : newProduct.hairTypes.length > 0) &&
+      newProduct.concerns.length > 0
+    );
+  };
+
+  const saveProduct = () => {
+    if (!isProductValid()) {
+      showToast('Please fill in all required fields');
+      return;
+    }
+
+    const product = {
+      id: Date.now(),
+      name: newProduct.name,
+      brand: newProduct.brand,
+      price: parseFloat(newProduct.price),
+      image: newProduct.image,
+      description: newProduct.description,
+      ingredients: newProduct.ingredients,
+      concerns: newProduct.concerns,
+      ...(newProduct.category === 'skincare'
+        ? { skinTypes: newProduct.skinTypes }
+        : { hairTypes: newProduct.hairTypes }),
+      rating: 5.0
+    };
+
+    const updated = {
+      ...customProducts,
+      [newProduct.category]: [...customProducts[newProduct.category], product]
+    };
+
+    setCustomProducts(updated);
+    localStorage.setItem('customProducts', JSON.stringify(updated));
+
+    setNewProduct({
+      name: '',
+      brand: '',
+      price: '',
+      category: 'skincare',
+      description: '',
+      ingredients: '',
+      image: null,
+      imagePreview: null,
+      concerns: [],
+      skinTypes: [],
+      hairTypes: []
+    });
+
+    showToast('Product added successfully!');
+    setAdminPanelOpen(false);
+  };
+
+  const allProducts = [
+    ...beautyProducts.skincare,
+    ...beautyProducts.haircare,
+    ...customProducts.skincare,
+    ...customProducts.haircare
+  ];
+  const filteredProducts = activeFilter === 'all'
+    ? allProducts
+    : [...(beautyProducts[activeFilter] || []), ...(customProducts[activeFilter] || [])];
 
   const availableProductsToAdd = allProducts.filter(
     product => !cart.some(item => item.id === product.id)
@@ -302,16 +412,24 @@ export default function BeautyApp() {
             <span style={styles.logoIcon}>🌿</span>
             <h1 style={styles.logo}>Bloom</h1>
           </div>
-          <button style={styles.cartButton} onClick={() => setCurrentView('checkout')}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-              <line x1="3" y1="6" x2="21" y2="6"/>
-              <path d="M16 10a4 4 0 0 1-8 0"/>
-            </svg>
-            {cart.length > 0 && (
-              <span style={styles.cartBadge}>{getCartItemCount()}</span>
-            )}
-          </button>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button style={styles.adminButton} onClick={() => setAdminPanelOpen(true)} title="Add Product">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+            </button>
+            <button style={styles.cartButton} onClick={() => setCurrentView('checkout')}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <path d="M16 10a4 4 0 0 1-8 0"/>
+              </svg>
+              {cart.length > 0 && (
+                <span style={styles.cartBadge}>{getCartItemCount()}</span>
+              )}
+            </button>
+          </div>
         </header>
 
         {/* Home View */}
@@ -412,7 +530,11 @@ export default function BeautyApp() {
                     onClick={() => openProductPanel(product)}
                   >
                     <div style={styles.productImageContainer}>
-                      <span style={styles.productEmoji}>{product.image}</span>
+                      {product.image && product.image.startsWith('data:') ? (
+                        <img src={product.image} alt={product.name} style={styles.productImageReal} />
+                      ) : (
+                        <span style={styles.productEmoji}>{product.image}</span>
+                      )}
                     </div>
                     <div style={styles.productInfo}>
                       <span style={styles.productBrand}>{product.brand}</span>
@@ -501,7 +623,11 @@ export default function BeautyApp() {
                 >
                   {index === 0 && <div style={styles.topPickBadge}>Top Pick</div>}
                   <div style={styles.recProductImage}>
-                    <span style={styles.recProductEmoji}>{product.image}</span>
+                    {product.image && product.image.startsWith('data:') ? (
+                      <img src={product.image} alt={product.name} style={styles.productImageReal} />
+                    ) : (
+                      <span style={styles.recProductEmoji}>{product.image}</span>
+                    )}
                   </div>
                   <div style={styles.recProductInfo}>
                     <span style={styles.recProductBrand}>{product.brand}</span>
@@ -972,7 +1098,11 @@ export default function BeautyApp() {
               availableProductsToAdd.map((product) => (
                 <div key={product.id} style={styles.addProductItem}>
                   <div style={styles.addProductItemImage}>
-                    <span style={styles.addProductItemEmoji}>{product.image}</span>
+                    {product.image && product.image.startsWith('data:') ? (
+                      <img src={product.image} alt={product.name} style={styles.productImageReal} />
+                    ) : (
+                      <span style={styles.addProductItemEmoji}>{product.image}</span>
+                    )}
                   </div>
                   <div style={styles.addProductItemInfo}>
                     <span style={styles.addProductItemBrand}>{product.brand}</span>
@@ -990,6 +1120,217 @@ export default function BeautyApp() {
                 </div>
               ))
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Admin Panel */}
+      <div style={{...styles.panelOverlay, opacity: adminPanelOpen ? 1 : 0, pointerEvents: adminPanelOpen ? 'auto' : 'none'}} onClick={() => setAdminPanelOpen(false)}></div>
+      <div style={{...styles.adminPanel, transform: adminPanelOpen ? 'translateY(0)' : 'translateY(100%)'}} onClick={(e) => e.stopPropagation()}>
+        <div style={styles.panelHandle}></div>
+        <button style={styles.panelClose} onClick={() => setAdminPanelOpen(false)}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+        <div style={styles.adminPanelContent}>
+          <h3 style={styles.addProductTitle}>Create New Product</h3>
+          <p style={styles.addProductSubtitle}>Upload product image and fill in details</p>
+
+          <div style={styles.adminForm}>
+            {/* Image Upload */}
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>Product Image *</label>
+              <div style={styles.imageUploadContainer}>
+                {newProduct.imagePreview ? (
+                  <div style={styles.imagePreviewContainer}>
+                    <img src={newProduct.imagePreview} alt="Preview" style={styles.imagePreview} />
+                    <button style={styles.removeImageButton} onClick={() => setNewProduct({...newProduct, image: null, imagePreview: null})}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                      </svg>
+                    </button>
+                  </div>
+                ) : (
+                  <label style={styles.imageUploadLabel} htmlFor="imageUpload">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                      <circle cx="8.5" cy="8.5" r="1.5"/>
+                      <polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                    <span>Click to upload image</span>
+                  </label>
+                )}
+                <input
+                  id="imageUpload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  style={styles.fileInput}
+                />
+              </div>
+            </div>
+
+            {/* Category */}
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>Category *</label>
+              <select
+                value={newProduct.category}
+                onChange={(e) => handleProductInput('category', e.target.value)}
+                style={styles.formSelect}
+              >
+                <option value="skincare">Skincare</option>
+                <option value="haircare">Haircare</option>
+              </select>
+            </div>
+
+            {/* Product Name */}
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>Product Name *</label>
+              <input
+                type="text"
+                value={newProduct.name}
+                onChange={(e) => handleProductInput('name', e.target.value)}
+                placeholder="e.g., Hydra Glow Serum"
+                style={styles.formInput}
+              />
+            </div>
+
+            {/* Brand */}
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>Brand *</label>
+              <input
+                type="text"
+                value={newProduct.brand}
+                onChange={(e) => handleProductInput('brand', e.target.value)}
+                placeholder="e.g., Botanica"
+                style={styles.formInput}
+              />
+            </div>
+
+            {/* Price */}
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>Price ($) *</label>
+              <input
+                type="number"
+                value={newProduct.price}
+                onChange={(e) => handleProductInput('price', e.target.value)}
+                placeholder="e.g., 68"
+                min="0"
+                step="0.01"
+                style={styles.formInput}
+              />
+            </div>
+
+            {/* Description */}
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>Description *</label>
+              <textarea
+                value={newProduct.description}
+                onChange={(e) => handleProductInput('description', e.target.value)}
+                placeholder="Describe the product..."
+                style={{...styles.formInput, minHeight: '80px', resize: 'vertical'}}
+              />
+            </div>
+
+            {/* Ingredients */}
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>Key Ingredients</label>
+              <input
+                type="text"
+                value={newProduct.ingredients}
+                onChange={(e) => handleProductInput('ingredients', e.target.value)}
+                placeholder="e.g., Hyaluronic Acid, Vitamin B5"
+                style={styles.formInput}
+              />
+            </div>
+
+            {/* Skin/Hair Types */}
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>
+                {newProduct.category === 'skincare' ? 'Skin Types *' : 'Hair Types *'}
+              </label>
+              <div style={styles.checkboxGroup}>
+                {newProduct.category === 'skincare' ? (
+                  <>
+                    {['dry', 'oily', 'combination', 'normal', 'sensitive'].map(type => (
+                      <label key={type} style={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={newProduct.skinTypes.includes(type)}
+                          onChange={() => toggleArrayField('skinTypes', type)}
+                          style={styles.checkbox}
+                        />
+                        {type.charAt(0).toUpperCase() + type.slice(1)}
+                      </label>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    {['fine', 'coarse', 'curly', 'color-treated', 'normal'].map(type => (
+                      <label key={type} style={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={newProduct.hairTypes.includes(type)}
+                          onChange={() => toggleArrayField('hairTypes', type)}
+                          style={styles.checkbox}
+                        />
+                        {type.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                      </label>
+                    ))}
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Concerns */}
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>Concerns *</label>
+              <div style={styles.checkboxGroup}>
+                {newProduct.category === 'skincare' ? (
+                  <>
+                    {['dryness', 'acne', 'aging', 'dullness', 'sensitivity', 'dark spots', 'oiliness', 'redness'].map(concern => (
+                      <label key={concern} style={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={newProduct.concerns.includes(concern)}
+                          onChange={() => toggleArrayField('concerns', concern)}
+                          style={styles.checkbox}
+                        />
+                        {concern.charAt(0).toUpperCase() + concern.slice(1)}
+                      </label>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    {['damage', 'frizz', 'flatness', 'thinning', 'oiliness', 'dryness', 'color fading'].map(concern => (
+                      <label key={concern} style={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={newProduct.concerns.includes(concern)}
+                          onChange={() => toggleArrayField('concerns', concern)}
+                          style={styles.checkbox}
+                        />
+                        {concern.charAt(0).toUpperCase() + concern.slice(1)}
+                      </label>
+                    ))}
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <button
+              onClick={saveProduct}
+              disabled={!isProductValid()}
+              style={{
+                ...styles.adminSubmitButton,
+                opacity: isProductValid() ? 1 : 0.5,
+                cursor: isProductValid() ? 'pointer' : 'not-allowed'
+              }}
+            >
+              Save Product
+            </button>
           </div>
         </div>
       </div>
@@ -1174,6 +1515,21 @@ const styles = {
     cursor: 'pointer',
     color: '#2d5a3d',
     boxShadow: '0 2px 12px rgba(45, 90, 61, 0.1)',
+    transition: 'all 0.3s ease',
+  },
+  adminButton: {
+    position: 'relative',
+    width: '44px',
+    height: '44px',
+    borderRadius: '50%',
+    border: 'none',
+    background: 'linear-gradient(135deg, #2d5a3d 0%, #3d7a52 100%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    color: '#fff',
+    boxShadow: '0 2px 12px rgba(45, 90, 61, 0.25)',
     transition: 'all 0.3s ease',
   },
   cartBadge: {
@@ -2567,5 +2923,145 @@ const styles = {
     cursor: 'pointer',
     transition: 'all 0.3s ease',
     boxShadow: '0 4px 16px rgba(45, 90, 61, 0.3)',
+  },
+  // Admin Panel Styles
+  adminPanel: {
+    position: 'fixed',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    background: '#fff',
+    borderRadius: '24px 24px 0 0',
+    maxHeight: '85vh',
+    overflow: 'auto',
+    zIndex: 101,
+    transition: 'transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)',
+    boxShadow: '0 -8px 40px rgba(45, 90, 61, 0.15)',
+  },
+  adminPanelContent: {
+    padding: '8px 24px 32px',
+  },
+  adminForm: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px',
+  },
+  formGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  formLabel: {
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#1a3d24',
+  },
+  formInput: {
+    padding: '12px 16px',
+    borderRadius: '12px',
+    border: '1px solid rgba(144, 198, 124, 0.3)',
+    fontSize: '14px',
+    fontFamily: "'Outfit', sans-serif",
+    transition: 'all 0.3s ease',
+    background: 'rgba(248, 250, 245, 0.5)',
+  },
+  formSelect: {
+    padding: '12px 16px',
+    borderRadius: '12px',
+    border: '1px solid rgba(144, 198, 124, 0.3)',
+    fontSize: '14px',
+    fontFamily: "'Outfit', sans-serif",
+    transition: 'all 0.3s ease',
+    background: 'rgba(248, 250, 245, 0.5)',
+    cursor: 'pointer',
+  },
+  imageUploadContainer: {
+    position: 'relative',
+    width: '100%',
+  },
+  imageUploadLabel: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '12px',
+    padding: '40px',
+    border: '2px dashed rgba(144, 198, 124, 0.4)',
+    borderRadius: '16px',
+    background: 'rgba(248, 250, 245, 0.5)',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    color: '#6b7c6e',
+  },
+  fileInput: {
+    display: 'none',
+  },
+  imagePreviewContainer: {
+    position: 'relative',
+    width: '100%',
+    borderRadius: '16px',
+    overflow: 'hidden',
+  },
+  imagePreview: {
+    width: '100%',
+    height: '200px',
+    objectFit: 'cover',
+    borderRadius: '16px',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: '12px',
+    right: '12px',
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
+    border: 'none',
+    background: 'rgba(255, 255, 255, 0.9)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+    color: '#1a3d24',
+  },
+  checkboxGroup: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '12px',
+  },
+  checkboxLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '8px 12px',
+    background: 'rgba(248, 250, 245, 0.8)',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '13px',
+    color: '#4a6b4f',
+    transition: 'all 0.2s ease',
+  },
+  checkbox: {
+    cursor: 'pointer',
+  },
+  adminSubmitButton: {
+    width: '100%',
+    padding: '16px',
+    background: 'linear-gradient(135deg, #2d5a3d 0%, #3d7a52 100%)',
+    border: 'none',
+    borderRadius: '14px',
+    color: '#fff',
+    fontSize: '16px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    boxShadow: '0 4px 16px rgba(45, 90, 61, 0.3)',
+    marginTop: '8px',
+  },
+  productImageReal: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    borderRadius: '12px',
   },
 };
